@@ -123,7 +123,8 @@ func (g *Glob) matchClass(class, s string) bool {
 	}
 
 	r, _ := utf8.DecodeRuneInString(s)
-	negate := len(class) > 0 && class[0] == '!'
+	// thanks marcrock for pointing this out <3
+	negate := len(class) > 0 && (class[0] == '!' || class[0] == '^')
 	if negate {
 		class = class[1:]
 	}
