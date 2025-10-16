@@ -6,235 +6,290 @@ import (
 	"github.com/nxtgo/golb"
 )
 
-type BenchmarkCase struct {
-	name        string
-	pattern     string
-	fixture     string
-	shouldMatch bool
-}
-
-var benchmarkTable = []BenchmarkCase{
-	// complex pattern with character classes and wildcards
-	{"ComplexCat_Match", "[a-z][!a-x]*cat*[h][!b]*eyes*", "my cat has very bright eyes", true},
-	{"ComplexCat_NoMatch", "[a-z][!a-x]*cat*[h][!b]*eyes*", "my dog has very bright eyes", false},
-
-	// url patterns, simplified from regex escaping
-	{"GoogleURL_Match", "https://*.google.*", "https://account.google.com", true},
-	{"GoogleURL_NoMatch", "https://*.google.*", "https://google.com", false},
-
-	// multiple alternatives (simplified from regex or)
-	{"MultiURL_Match", "{https://*.google.*,*yandex.*,*yahoo.*,*mail.ru}", "http://yahoo.com", true},
-	{"MultiURL_NoMatch", "{https://*.google.*,*yandex.*,*yahoo.*,*mail.ru}", "http://google.com", false},
-
-	// gobwas domain patterns
-	{"Gobwas_Match", "{https://*.gobwas.com,http://exclude.gobwas.com}", "https://safe.gobwas.com", true},
-	{"Gobwas_NoMatch", "{https://*.gobwas.com,http://exclude.gobwas.com}", "http://safe.gobwas.com", false},
-
-	// simple prefix patterns
-	{"Prefix_Match", "abc*", "abcdef", true},
-	{"Prefix_NoMatch", "abc*", "af", false},
-
-	// simple suffix patterns
-	{"Suffix_Match", "*def", "abcdef", true},
-	{"Suffix_NoMatch", "*def", "af", false},
-
-	// prefix + suffix patterns
-	{"PrefixSuffix_Match", "ab*ef", "abcdef", true},
-	{"PrefixSuffix_NoMatch", "ab*ef", "af", false},
-
-	// additional glob-specific patterns for completeness
-	{"SuperWildcard_Match", "a**z", "a/b/c/d/z", true},
-	{"SuperWildcard_NoMatch", "a**z", "a/b/c/d/y", false},
-	{"SingleChar_Match", "a?c", "abc", true},
-	{"SingleChar_NoMatch", "a?c", "ac", false},
-	{"Range_Match", "[0-9][0-9][0-9]", "123", true},
-	{"Range_NoMatch", "[0-9][0-9][0-9]", "abc", false},
-	{"NegatedClass_Match", "[!abc]def", "xdef", true},
-	{"NegatedClass_NoMatch", "[!abc]def", "adef", false},
-}
-
-func BenchmarkComplexCat_Match(b *testing.B) {
-	runSingleBenchmark(b, "[a-z][!a-x]*cat*[h][!b]*eyes*", "my cat has very bright eyes")
-}
-
-func BenchmarkComplexCat_NoMatch(b *testing.B) {
-	runSingleBenchmark(b, "[a-z][!a-x]*cat*[h][!b]*eyes*", "my dog has very bright eyes")
-}
-
-func BenchmarkGoogleURL_Match(b *testing.B) {
-	runSingleBenchmark(b, "https://*.google.*", "https://account.google.com")
-}
-
-func BenchmarkGoogleURL_NoMatch(b *testing.B) {
-	runSingleBenchmark(b, "https://*.google.*", "https://google.com")
-}
-
-func BenchmarkMultiURL_Match(b *testing.B) {
-	runSingleBenchmark(b, "{https://*.google.*,*yandex.*,*yahoo.*,*mail.ru}", "http://yahoo.com")
-}
-
-func BenchmarkMultiURL_NoMatch(b *testing.B) {
-	runSingleBenchmark(b, "{https://*.google.*,*yandex.*,*yahoo.*,*mail.ru}", "http://google.com")
-}
-
-func BenchmarkGobwas_Match(b *testing.B) {
-	runSingleBenchmark(b, "{https://*.gobwas.com,http://exclude.gobwas.com}", "https://safe.gobwas.com")
-}
-
-func BenchmarkGobwas_NoMatch(b *testing.B) {
-	runSingleBenchmark(b, "{https://*.gobwas.com,http://exclude.gobwas.com}", "http://safe.gobwas.com")
-}
-
-func BenchmarkPrefix_Match(b *testing.B) {
-	runSingleBenchmark(b, "abc*", "abcdef")
-}
-
-func BenchmarkPrefix_NoMatch(b *testing.B) {
-	runSingleBenchmark(b, "abc*", "af")
-}
-
-func BenchmarkSuffix_Match(b *testing.B) {
-	runSingleBenchmark(b, "*def", "abcdef")
-}
-
-func BenchmarkSuffix_NoMatch(b *testing.B) {
-	runSingleBenchmark(b, "*def", "af")
-}
-
-func BenchmarkPrefixSuffix_Match(b *testing.B) {
-	runSingleBenchmark(b, "ab*ef", "abcdef")
-}
-
-func BenchmarkPrefixSuffix_NoMatch(b *testing.B) {
-	runSingleBenchmark(b, "ab*ef", "af")
-}
-
-func BenchmarkSuperWildcard_Match(b *testing.B) {
-	runSingleBenchmark(b, "a**z", "a/b/c/d/z")
-}
-
-func BenchmarkSingleChar_Match(b *testing.B) {
-	runSingleBenchmark(b, "a?c", "abc")
-}
-
-func BenchmarkRange_Match(b *testing.B) {
-	runSingleBenchmark(b, "[0-9][0-9][0-9]", "123")
-}
-
-func runSingleBenchmark(b *testing.B, pattern, fixture string) {
-	g := golb.Compile(pattern)
-	b.ResetTimer()
-
-	for i := 0; b.Loop(); i++ {
-		g.Match(fixture)
-	}
-}
-
-func BenchmarkAllPatterns(b *testing.B) {
-	compiled := make([]*golb.Glob, len(benchmarkTable))
-	for i, tc := range benchmarkTable {
-		compiled[i] = golb.Compile(tc.pattern)
+func TestBasicMatching(t *testing.T) {
+	tests := []struct {
+		pattern string
+		input   string
+		want    bool
+	}{
+		{"abc", "abc", true},
+		{"abc", "abd", false},
+		{"abc*", "abcdef", true},
+		{"abc*", "af", false},
+		{"*def", "abcdef", true},
+		{"*def", "af", false},
+		{"ab*ef", "abcdef", true},
+		{"ab*ef", "af", false},
 	}
 
-	b.ResetTimer()
-
-	for i := 0; b.Loop(); i++ {
-		for j, tc := range benchmarkTable {
-			result := compiled[j].Match(tc.fixture)
-			if result != tc.shouldMatch {
-				b.Errorf("pattern %q with fixture %q: expected %v, got %v",
-					tc.pattern, tc.fixture, tc.shouldMatch, result)
-			}
-		}
-	}
-}
-
-func BenchmarkCompilation(b *testing.B) {
-	patterns := []string{
-		"[a-z][!a-x]*cat*[h][!b]*eyes*",
-		"https://*.google.*",
-		"{https://*.google.*,*yandex.*,*yahoo.*,*mail.ru}",
-		"abc*",
-		"*def",
-		"ab*ef",
-		"a**z",
-		"a?c",
-		"[0-9][0-9][0-9]",
-		"[!abc]def",
-	}
-
-	b.ResetTimer()
-
-	for i := 0; b.Loop(); i++ {
-		for _, pattern := range patterns {
-			golb.Compile(pattern)
-		}
-	}
-}
-
-func BenchmarkConvenienceMatch(b *testing.B) {
-	for i := 0; b.Loop(); i++ {
-		for _, tc := range benchmarkTable {
-			golb.Match(tc.pattern, tc.fixture)
-		}
-	}
-}
-
-func BenchmarkMemoryAlloc(b *testing.B) {
-	pattern := "[a-z][!a-x]*cat*[h][!b]*eyes*"
-	fixture := "my cat has very bright eyes"
-
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; b.Loop(); i++ {
-		g := golb.Compile(pattern)
-		g.Match(fixture)
-	}
-}
-
-func BenchmarkGenerateTable(b *testing.B) {
-	b.Skip("This is for generating comparison table - run manually")
-
-	for _, tc := range benchmarkTable {
-		g := golb.Compile(tc.pattern)
-
-		b.Run(tc.name, func(b *testing.B) {
-			for i := 0; b.Loop(); i++ {
-				g.Match(tc.fixture)
+	for _, tt := range tests {
+		t.Run(tt.pattern+"_"+tt.input, func(t *testing.T) {
+			g := golb.Compile(tt.pattern)
+			got := g.Match(tt.input)
+			if got != tt.want {
+				t.Errorf("Match(%q, %q) = %v, want %v", tt.pattern, tt.input, got, tt.want)
 			}
 		})
 	}
 }
 
-func BenchmarkFileMatching(b *testing.B) {
-	patterns := []*golb.Glob{
-		golb.Compile("*.go"),
-		golb.Compile("**/*.go"),
-		golb.Compile("*.{js,ts,jsx,tsx}"),
-		golb.Compile("test/**/*_test.go"),
-		golb.Compile("src/**/components/*.{js,jsx}"),
-		golb.Compile("node_modules/**"),
+func TestWildcards(t *testing.T) {
+	tests := []struct {
+		pattern string
+		input   string
+		want    bool
+	}{
+		{"a?c", "abc", true},
+		{"a?c", "ac", false},
+		{"a?c", "abcd", false},
+		{"a**z", "a/b/c/d/z", true},
+		{"a**z", "a/b/c/d/y", false},
+		{"a**z", "az", true},
 	}
 
-	files := []string{
-		"main.go",
-		"src/components/Button.jsx",
-		"test/unit/parser_test.go",
-		"node_modules/react/index.js",
-		"docs/README.md",
-		"build/dist/app.js",
-		"src/utils/helper.ts",
-		"test/integration/api_test.go",
-	}
-
-	b.ResetTimer()
-
-	for i := 0; b.Loop(); i++ {
-		for _, pattern := range patterns {
-			for _, file := range files {
-				pattern.Match(file)
+	for _, tt := range tests {
+		t.Run(tt.pattern+"_"+tt.input, func(t *testing.T) {
+			g := golb.Compile(tt.pattern)
+			got := g.Match(tt.input)
+			if got != tt.want {
+				t.Errorf("Match(%q, %q) = %v, want %v", tt.pattern, tt.input, got, tt.want)
 			}
-		}
+		})
+	}
+}
+
+func TestCharacterClasses(t *testing.T) {
+	tests := []struct {
+		pattern string
+		input   string
+		want    bool
+	}{
+		{"[abc]", "a", true},
+		{"[abc]", "b", true},
+		{"[abc]", "d", false},
+		{"[0-9]", "5", true},
+		{"[0-9]", "a", false},
+		{"[0-9][0-9][0-9]", "123", true},
+		{"[0-9][0-9][0-9]", "abc", false},
+		{"[a-z]def", "xdef", true},
+		{"[a-z]def", "1def", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.pattern+"_"+tt.input, func(t *testing.T) {
+			g := golb.Compile(tt.pattern)
+			got := g.Match(tt.input)
+			if got != tt.want {
+				t.Errorf("Match(%q, %q) = %v, want %v", tt.pattern, tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNegatedClasses(t *testing.T) {
+	tests := []struct {
+		pattern string
+		input   string
+		want    bool
+	}{
+		{"[!abc]def", "xdef", true},
+		{"[!abc]def", "adef", false},
+		{"[^abc]def", "xdef", true},
+		{"[^abc]def", "adef", false},
+		{"[!0-9]", "a", true},
+		{"[!0-9]", "5", false},
+		{"[^0-9]", "a", true},
+		{"[^0-9]", "5", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.pattern+"_"+tt.input, func(t *testing.T) {
+			g := golb.Compile(tt.pattern)
+			got := g.Match(tt.input)
+			if got != tt.want {
+				t.Errorf("Match(%q, %q) = %v, want %v", tt.pattern, tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAlternatives(t *testing.T) {
+	tests := []struct {
+		pattern string
+		input   string
+		want    bool
+	}{
+		{"{a,b,c}", "a", true},
+		{"{a,b,c}", "b", true},
+		{"{a,b,c}", "d", false},
+		{"{ab,cd}", "ab", true},
+		{"{ab,cd}", "cd", true},
+		{"{ab,cd}", "ac", false},
+		{"{*yahoo.*}", "http://yahoo.com", true},
+		{"{https://*.google.*,*yandex.*,*yahoo.*,*mail.ru}", "http://yahoo.com", true},
+		{"{https://*.google.*,*yandex.*,*yahoo.*,*mail.ru}", "https://maps.google.com", true},
+		{"{https://*.google.*,*yandex.*,*yahoo.*,*mail.ru}", "http://google.com", false},
+		{"{https://*.gobwas.com,http://exclude.gobwas.com}", "https://safe.gobwas.com", true},
+		{"{https://*.gobwas.com,http://exclude.gobwas.com}", "http://exclude.gobwas.com", true},
+		{"{https://*.gobwas.com,http://exclude.gobwas.com}", "http://safe.gobwas.com", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.pattern+"_"+tt.input, func(t *testing.T) {
+			g := golb.Compile(tt.pattern)
+			got := g.Match(tt.input)
+			if got != tt.want {
+				t.Errorf("Match(%q, %q) = %v, want %v", tt.pattern, tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestComplexPatterns(t *testing.T) {
+	tests := []struct {
+		pattern string
+		input   string
+		want    bool
+	}{
+		{"[a-z][!a-x]*cat*[h][!b]*eyes*", "my cat has very bright eyes", true},
+		{"[a-z][!a-x]*cat*[h][!b]*eyes*", "my dog has very bright eyes", false},
+		{"https://*.google.*", "https://account.google.com", true},
+		{"https://*.google.*", "https://google.com", false},
+		{"*.{js,ts,jsx,tsx}", "app.js", true},
+		{"*.{js,ts,jsx,tsx}", "app.ts", true},
+		{"*.{js,ts,jsx,tsx}", "app.jsx", true},
+		{"*.{js,ts,jsx,tsx}", "app.tsx", true},
+		{"*.{js,ts,jsx,tsx}", "app.go", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.pattern+"_"+tt.input, func(t *testing.T) {
+			g := golb.Compile(tt.pattern)
+			got := g.Match(tt.input)
+			if got != tt.want {
+				t.Errorf("Match(%q, %q) = %v, want %v", tt.pattern, tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFileMatching(t *testing.T) {
+	tests := []struct {
+		pattern string
+		input   string
+		want    bool
+	}{
+		{"*.go", "main.go", true},
+		{"*.go", "main.js", false},
+		{"**/*.go", "src/main.go", true},
+		{"**/*.go", "src/utils/helper.go", true},
+		{"**/*.go", "main.js", false},
+		{"test/**/*_test.go", "test/unit/parser_test.go", true},
+		{"test/**/*_test.go", "test/integration/api_test.go", true},
+		{"test/**/*_test.go", "src/main.go", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.pattern+"_"+tt.input, func(t *testing.T) {
+			g := golb.Compile(tt.pattern)
+			got := g.Match(tt.input)
+			if got != tt.want {
+				t.Errorf("Match(%q, %q) = %v, want %v", tt.pattern, tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEscaping(t *testing.T) {
+	tests := []struct {
+		pattern string
+		input   string
+		want    bool
+	}{
+		{"\\*", "*", true},
+		{"\\*", "a", false},
+		{"\\?", "?", true},
+		{"\\?", "a", false},
+		{"a\\*b", "a*b", true},
+		{"a\\*b", "aXb", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.pattern+"_"+tt.input, func(t *testing.T) {
+			g := golb.Compile(tt.pattern)
+			got := g.Match(tt.input)
+			if got != tt.want {
+				t.Errorf("Match(%q, %q) = %v, want %v", tt.pattern, tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestConvenienceFunction(t *testing.T) {
+	if !golb.Match("*.go", "main.go") {
+		t.Error("Match(*.go, main.go) should be true")
+	}
+	if golb.Match("*.go", "main.js") {
+		t.Error("Match(*.go, main.js) should be false")
+	}
+}
+
+func TestQuoteMeta(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"abc", "abc"},
+		{"a*b", "a\\*b"},
+		{"a?b", "a\\?b"},
+		{"a[b", "a\\[b"},
+		{"a]b", "a\\]b"},
+		{"a{b", "a\\{b"},
+		{"a}b", "a\\}b"},
+		{"a\\b", "a\\\\b"},
+		{"*?[]{}\\", "\\*\\?\\[\\]\\{\\}\\\\"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := golb.QuoteMeta(tt.input)
+			if got != tt.want {
+				t.Errorf("QuoteMeta(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func BenchmarkSimplePrefix(b *testing.B) {
+	g := golb.Compile("abc*")
+	for i := 0; i < b.N; i++ {
+		g.Match("abcdef")
+	}
+}
+
+func BenchmarkSimpleSuffix(b *testing.B) {
+	g := golb.Compile("*def")
+	for i := 0; i < b.N; i++ {
+		g.Match("abcdef")
+	}
+}
+
+func BenchmarkComplexPattern(b *testing.B) {
+	g := golb.Compile("[a-z][!a-x]*cat*[h][!b]*eyes*")
+	for i := 0; i < b.N; i++ {
+		g.Match("my cat has very bright eyes")
+	}
+}
+
+func BenchmarkAlternatives(b *testing.B) {
+	g := golb.Compile("{https://*.google.*,*yandex.*,*yahoo.*,*mail.ru}")
+	for i := 0; i < b.N; i++ {
+		g.Match("http://yahoo.com")
+	}
+}
+
+func BenchmarkCompilation(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		golb.Compile("[a-z][!a-x]*cat*[h][!b]*eyes*")
 	}
 }

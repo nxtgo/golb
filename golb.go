@@ -123,7 +123,6 @@ func (g *Glob) matchClass(class, s string) bool {
 	}
 
 	r, _ := utf8.DecodeRuneInString(s)
-	// thanks marcrock for pointing this out <3
 	negate := len(class) > 0 && (class[0] == '!' || class[0] == '^')
 	if negate {
 		class = class[1:]
@@ -152,16 +151,17 @@ func (g *Glob) matchClass(class, s string) bool {
 }
 
 func (g *Glob) findClosingBrace(pattern string) int {
-	depth := 0
-	for i, c := range pattern {
+	depth := 1
+	for i := 1; i < len(pattern); i++ {
+		c := pattern[i]
 		switch c {
 		case '{':
 			depth++
 		case '}':
+			depth--
 			if depth == 0 {
 				return i
 			}
-			depth--
 		case '\\':
 			i++
 		}
@@ -172,11 +172,16 @@ func (g *Glob) findClosingBrace(pattern string) int {
 func (g *Glob) matchAlternatives(alternatives, rest, s string) bool {
 	alts := g.splitAlternatives(alternatives)
 	for _, alt := range alts {
-		if g.match(alt+rest, s) {
+		combined := alt + rest
+		if g.match(combined, s) {
 			return true
 		}
 	}
 	return false
+}
+
+func (g *Glob) SplitAlternativesDebug(s string) []string {
+	return g.splitAlternatives(s)
 }
 
 func (g *Glob) splitAlternatives(s string) []string {
@@ -184,28 +189,30 @@ func (g *Glob) splitAlternatives(s string) []string {
 	var current strings.Builder
 	depth := 0
 
-	for i, c := range s {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
 		switch c {
 		case '{':
 			depth++
-			current.WriteRune(c)
+			current.WriteByte(c)
 		case '}':
 			depth--
-			current.WriteRune(c)
+			current.WriteByte(c)
 		case ',':
 			if depth == 0 {
 				parts = append(parts, current.String())
 				current.Reset()
 			} else {
-				current.WriteRune(c)
+				current.WriteByte(c)
 			}
 		case '\\':
-			current.WriteRune(c)
+			current.WriteByte(c)
 			if i+1 < len(s) {
-				current.WriteByte(s[i+1])
+				i++
+				current.WriteByte(s[i])
 			}
 		default:
-			current.WriteRune(c)
+			current.WriteByte(c)
 		}
 	}
 
@@ -220,7 +227,9 @@ func (g *Glob) hasSeparator(s string) bool {
 		return false
 	}
 	for _, r := range s {
-		return slices.Contains(g.seps, r)
+		if slices.Contains(g.seps, r) {
+			return true
+		}
 	}
 	return false
 }
